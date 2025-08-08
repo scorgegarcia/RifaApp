@@ -143,8 +143,8 @@ router.post('/reserve', [
       for (const ticketNumber of ticketNumbers) {
         const [result] = await conn.execute(
           `INSERT INTO tickets (rifa_id, ticket_number, buyer_name, buyer_email, buyer_phone, 
-                               payment_status, purchase_type) 
-           VALUES (?, ?, ?, ?, ?, 'pending', 'single')`,
+                               payment_status) 
+           VALUES (?, ?, ?, ?, ?, 'pending')`,
           [
             rifaId,
             ticketNumber,
