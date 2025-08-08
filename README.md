@@ -23,8 +23,8 @@ Una aplicación web completa para gestionar rifas con React, Express.js y MariaD
 
 1. **Clonar el repositorio**
    ```bash
-   git clone <url-del-repositorio>
-   cd rifa-system
+   git clone https://github.com/scorgegarcia/RifaApp.git
+   cd RifaApp
    ```
 
 2. **Instalar dependencias**
