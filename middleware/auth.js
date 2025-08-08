@@ -25,12 +25,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: users[0].role
-    };
-    
-    req.user = {
+      id: decoded.userId,
       userId: decoded.userId,
       email: users[0].email,
       role: users[0].role
@@ -128,8 +123,9 @@ const optionalAuth = async (req, res, next) => {
 
       if (users.length > 0 && users[0].is_active) {
         req.user = {
+          id: decoded.userId,
           userId: decoded.userId,
-          email: decoded.email,
+          email: users[0].email,
           role: users[0].role
         };
       }
@@ -144,6 +140,7 @@ const optionalAuth = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
+  auth: authenticateToken,
   isAdmin,
   isOwnerOrAdmin,
   optionalAuth

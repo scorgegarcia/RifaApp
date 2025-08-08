@@ -13,6 +13,7 @@ import RifaDetail from './pages/rifas/RifaDetail';
 import CreateRifa from './pages/rifas/CreateRifa';
 import EditRifa from './pages/rifas/EditRifa';
 import MyRifas from './pages/rifas/MyRifas';
+import MyParticipations from './pages/MyParticipations';
 import Dashboard from './pages/admin/Dashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminRifas from './pages/admin/AdminRifas';
@@ -52,6 +53,11 @@ function App() {
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/my-participations" element={
+                    <ProtectedRoute>
+                      <MyParticipations />
                     </ProtectedRoute>
                   } />
                   <Route path="/rifas/create" element={

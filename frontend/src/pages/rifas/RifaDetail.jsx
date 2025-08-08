@@ -89,8 +89,8 @@ const RifaDetail = () => {
         // Crear el pago en PayPal con los tickets reservados
         const paymentData = {
            ticketIds: reserveResponse.data.reservation.ticketIds,
-           returnUrl: `http://localhost:3000/payment/success`,
-           cancelUrl: `http://localhost:3000/payment/cancel`
+           returnUrl: `${window.location.origin}/api/payment/success`,
+           cancelUrl: `${window.location.origin}/api/payment/cancel`
          };
         
         const paymentResponse = await axios.post('/api/payments/create-payment', paymentData);
@@ -105,8 +105,8 @@ const RifaDetail = () => {
         toast.error('Error al reservar los tickets');
       }
     } catch (error) {
-      console.error('Error al procesar la compra:', error);
-      const message = error.response?.data?.message || 'Error al procesar la compra';
+      console.error('Error al procesar la compra, asegurate de llenar todos los campos:', error);
+      const message = error.response?.data?.message || 'Error al procesar la compra, asegurate de llenar todos los campos';
       toast.error(message);
     } finally {
       setPurchasing(false);
@@ -338,7 +338,7 @@ const RifaDetail = () => {
                         />
                         <input
                           type="tel"
-                          placeholder="Teléfono (opcional)"
+                          placeholder="Teléfono"
                           value={customerInfo.phone}
                           onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
                           className="input w-full"

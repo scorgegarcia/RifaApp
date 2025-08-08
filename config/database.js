@@ -116,6 +116,7 @@ const initializeDatabase = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         rifa_id INT NOT NULL,
         ticket_number INT NOT NULL,
+        user_id INT,
         buyer_name VARCHAR(255),
         buyer_email VARCHAR(255),
         buyer_phone VARCHAR(20),
@@ -124,6 +125,7 @@ const initializeDatabase = async () => {
         payment_reference VARCHAR(255),
         purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (rifa_id) REFERENCES rifas(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
         UNIQUE KEY unique_ticket (rifa_id, ticket_number)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);

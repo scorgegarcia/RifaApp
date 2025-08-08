@@ -63,19 +63,29 @@ const Navbar = () => {
               {isAuthenticated() && (
                 <>
                   {user && user.role === 'admin' && (
+                    <>
+                      <Link
+                        to="/rifas/create"
+                        className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                      >
+                        Crear Rifa
+                      </Link>
+                      <Link
+                        to="/my-rifas"
+                        className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                      >
+                        Mis Rifas
+                      </Link>
+                    </>
+                  )}
+                  {user && user.role !== 'admin' && (
                     <Link
-                      to="/rifas/create"
+                      to="/my-participations"
                       className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                     >
-                      Crear Rifa
+                      Mis Participaciones
                     </Link>
                   )}
-                  <Link
-                    to="/my-rifas"
-                    className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Mis Rifas
-                  </Link>
                 </>
               )}
               
@@ -211,21 +221,32 @@ const Navbar = () => {
             ) : (
               <>
                 {user && user.role === 'admin' && (
+                  <>
+                    <Link
+                      to="/rifas/create"
+                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Crear Rifa
+                    </Link>
+                    <Link
+                      to="/my-rifas"
+                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Mis Rifas
+                    </Link>
+                  </>
+                )}
+                {user && user.role !== 'admin' && (
                   <Link
-                    to="/rifas/create"
+                    to="/my-participations"
                     className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-100 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Crear Rifa
+                    Mis Participaciones
                   </Link>
                 )}
-                <Link
-                  to="/my-rifas"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-100 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Mis Rifas
-                </Link>
                 
                 {isAdmin() && (
                   <Link

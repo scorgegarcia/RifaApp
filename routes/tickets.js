@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { getConnection } = require('../config/database');
-const { optionalAuth } = require('../middleware/auth');
+const { optionalAuth, auth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -55,7 +55,7 @@ router.get('/available/:rifaId', async (req, res) => {
 });
 
 // Reservar tickets (crear orden de compra)
-router.post('/reserve', [
+router.post('/reserve', optionalAuth, [
   body('rifaId').isInt({ min: 1 }),
   body('buyerName').trim().isLength({ min: 2, max: 255 }),
   body('buyerEmail').isEmail().normalizeEmail(),
@@ -151,12 +151,13 @@ router.post('/reserve', [
       const ticketIds = [];
       for (const ticketNumber of ticketNumbers) {
         const [result] = await conn.execute(
-          `INSERT INTO tickets (rifa_id, ticket_number, buyer_name, buyer_email, buyer_phone, 
+          `INSERT INTO tickets (rifa_id, ticket_number, user_id, buyer_name, buyer_email, buyer_phone, 
                                payment_status) 
-           VALUES (?, ?, ?, ?, ?, 'pending')`,
+           VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
           [
             rifaId,
             ticketNumber,
+            req.user ? req.user.id : null,
             buyerName,
             buyerEmail,
             buyerPhone || null
@@ -311,6 +312,46 @@ router.post('/cleanup-expired', async (req, res) => {
   }
 });
 
+// Obtener participaciones del usuario autenticado
+router.get('/my-participations', auth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
 
+    const conn = await getConnection();
+    
+    // Obtener todas las participaciones del usuario con información de la rifa
+    const [participations] = await conn.execute(`
+      SELECT 
+        r.id as rifa_id,
+        r.title,
+        r.description,
+        r.image_url,
+        r.draw_date,
+        COUNT(t.id) as ticket_count,
+        GROUP_CONCAT(t.ticket_number ORDER BY t.ticket_number ASC) as ticket_numbers,
+        SUM(p.amount) as total_amount
+      FROM rifas r
+      INNER JOIN tickets t ON r.id = t.rifa_id
+      INNER JOIN payments p ON t.id = p.ticket_id
+      WHERE t.user_id = ? AND t.payment_status = 'completed'
+      GROUP BY r.id, r.title, r.description, r.image_url, r.draw_date
+      ORDER BY r.draw_date DESC
+    `, [req.user.id]);
+
+    // Formatear los datos para el frontend
+    const formattedParticipations = participations.map(participation => ({
+      ...participation,
+      ticket_numbers: participation.ticket_numbers ? participation.ticket_numbers.split(',').map(num => parseInt(num)) : [],
+      total_amount: parseFloat(participation.total_amount || 0).toFixed(2)
+    }));
+
+    res.json(formattedParticipations);
+  } catch (error) {
+    console.error('Error al obtener participaciones:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
 
 module.exports = router;

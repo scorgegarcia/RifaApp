@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   plugins: [react()],
   server: {
     port: 5173,
+    historyApiFallback: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

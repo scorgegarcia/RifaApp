@@ -68,33 +68,19 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Rutas de setup (sin middleware de verificación)
 app.use('/api/setup', setupRoutes);
 
-// Servir archivos estáticos específicos (CSS, JS, imágenes) - no HTML
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/assets', express.static(path.join(__dirname, 'frontend/dist/assets'), {
-    setHeaders: (res, path) => {
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
-      res.set('Surrogate-Control', 'no-store');
-    }
-  }));
-  app.use('/vite.svg', express.static(path.join(__dirname, 'frontend/dist/vite.svg'), {
-    setHeaders: (res, path) => {
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
-      res.set('Surrogate-Control', 'no-store');
-    }
-  }));
-} else {
+// Servir archivos estáticos específicos (CSS, JS, imágenes) - solo en producción
+if (process.env.NODE_ENV === 'production') {
   app.use('/assets', express.static(path.join(__dirname, 'frontend/dist/assets')));
   app.use('/vite.svg', express.static(path.join(__dirname, 'frontend/dist/vite.svg')));
+  app.use(express.static(path.join(__dirname, 'frontend/dist')));
 }
 
-// Ruta específica para setup (antes del middleware)
-app.get('/setup', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-});
+// Ruta específica para setup (solo en producción)
+if (process.env.NODE_ENV === 'production') {
+  app.get('/setup', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+  });
+}
 
 // Middleware de verificación de setup (aplicado a rutas de navegación)
 app.use(checkSetup);
@@ -108,25 +94,104 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/config', configRoutes);
 
 // Rutas de retorno de PayPal
-app.get('/payment/success', (req, res) => {
-  const { paymentId, PayerID } = req.query;
-  res.redirect(`http://localhost:5173/payment/success?paymentId=${paymentId}&PayerID=${PayerID}`);
+app.get('/api/payment/success', (req, res) => {
+  const { paymentId, PayerID, token } = req.query;
+  const params = new URLSearchParams();
+  if (paymentId) params.append('paymentId', paymentId);
+  if (PayerID) params.append('PayerID', PayerID);
+  if (token) params.append('token', token);
+  
+  // Detectar el puerto correcto según el entorno
+  const frontendPort = process.env.NODE_ENV === 'production' ? PORT : 5173;
+  const redirectUrl = `http://localhost:${frontendPort}/payment/success?${params.toString()}`;
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Redirigiendo...</title>
+      <meta charset="utf-8">
+    </head>
+    <body>
+      <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <h2>Procesando pago...</h2>
+        <p>Serás redirigido automáticamente en unos segundos.</p>
+        <div style="margin: 20px 0;">
+          <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <p><a href="${redirectUrl}" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+      <script>
+           console.log('Redirigiendo a:', '${redirectUrl}');
+           setTimeout(function() {
+             try {
+               window.location.href = '${redirectUrl}';
+             } catch (e) {
+               console.error('Error en redirección:', e);
+               document.getElementById('manualLink').click();
+             }
+           }, 1000);
+         </script>
+    </body>
+    </html>
+  `);
 });
 
-app.get('/payment/cancel', (req, res) => {
-  res.redirect('http://localhost:5173/payment/cancel');
+app.get('/api/payment/cancel', (req, res) => {
+  // Detectar el puerto correcto según el entorno
+  const frontendPort = process.env.NODE_ENV === 'production' ? PORT : 5173;
+  const redirectUrl = `http://localhost:${frontendPort}/payment/cancel`;
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Redirigiendo...</title>
+      <meta charset="utf-8">
+    </head>
+    <body>
+      <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <h2>Pago cancelado</h2>
+        <p>Serás redirigido automáticamente en unos segundos.</p>
+        <div style="margin: 20px 0;">
+          <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <p><a href="${redirectUrl}" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+      <script>
+           console.log('Redirigiendo a:', '${redirectUrl}');
+           setTimeout(function() {
+             try {
+               window.location.href = '${redirectUrl}';
+             } catch (e) {
+               console.error('Error en redirección:', e);
+               document.getElementById('manualLink').click();
+             }
+           }, 1000);
+         </script>
+    </body>
+    </html>
+  `);
 });
 
-// Ruta catch-all para React Router (después del middleware)
-app.get('*', (req, res) => {
-  if (process.env.NODE_ENV !== 'production') {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
-  }
-  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-});
+// Ruta catch-all para React Router (solo en producción)
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+  });
+}
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
