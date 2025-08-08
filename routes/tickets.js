@@ -43,7 +43,8 @@ router.get('/available/:rifaId', async (req, res) => {
       rifaId: parseInt(rifaId),
       totalTickets: rifa.total_tickets,
       minTickets: rifa.min_tickets || 1,
-      soldTickets: soldNumbers.length,
+      soldTickets: soldNumbers,
+      soldTicketsCount: soldNumbers.length,
       availableTickets,
       availableCount: availableTickets.length
     });
