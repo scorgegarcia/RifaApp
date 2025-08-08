@@ -2,6 +2,9 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { getConnection } = require('../config/database');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
@@ -191,6 +194,219 @@ router.delete('/:key', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al eliminar configuración:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// Obtener variables de entorno (solo admin con verificación de contraseña)
+router.post('/env', [
+  body('password').notEmpty().withMessage('La contraseña es requerida')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos inválidos',
+        errors: errors.array()
+      });
+    }
+
+    const { password } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    // Verificar contraseña del usuario
+    const conn = await getConnection();
+    const [users] = await conn.execute(
+      'SELECT password FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, users[0].password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña incorrecta'
+      });
+    }
+
+    // Leer variables de entorno del archivo .env
+    const envPath = path.join(__dirname, '..', '.env');
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    
+    const envVars = {};
+    const lines = envContent.split('\n');
+    
+    const allowedVars = [
+      'PAYPAL_CLIENT_ID',
+      'PAYPAL_CLIENT_SECRET', 
+      'PAYPAL_MODE',
+      'DB_HOST',
+      'DB_PORT',
+      'DB_USER',
+      'DB_PASSWORD',
+      'DB_NAME',
+      'JWT_SECRET',
+      'JWT_EXPIRES_IN',
+      'PORT',
+      'NODE_ENV',
+      'IMGBB_API_KEY'
+    ];
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const [key, ...valueParts] = trimmedLine.split('=');
+        const value = valueParts.join('=');
+        if (allowedVars.includes(key)) {
+          envVars[key] = value || '';
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: envVars
+    });
+  } catch (error) {
+    console.error('Error al obtener variables de entorno:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// Actualizar variables de entorno (solo admin con verificación de contraseña)
+router.put('/env', [
+  body('password').notEmpty().withMessage('La contraseña es requerida'),
+  body('envVars').isObject().withMessage('Las variables de entorno deben ser un objeto')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos inválidos',
+        errors: errors.array()
+      });
+    }
+
+    const { password, envVars } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    // Verificar contraseña del usuario
+    const conn = await getConnection();
+    const [users] = await conn.execute(
+      'SELECT password FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, users[0].password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña incorrecta'
+      });
+    }
+
+    const allowedVars = [
+      'PAYPAL_CLIENT_ID',
+      'PAYPAL_CLIENT_SECRET', 
+      'PAYPAL_MODE',
+      'DB_HOST',
+      'DB_PORT',
+      'DB_USER',
+      'DB_PASSWORD',
+      'DB_NAME',
+      'JWT_SECRET',
+      'JWT_EXPIRES_IN',
+      'PORT',
+      'NODE_ENV',
+      'IMGBB_API_KEY'
+    ];
+
+    // Validar que solo se actualicen variables permitidas
+    const invalidVars = Object.keys(envVars).filter(key => !allowedVars.includes(key));
+    if (invalidVars.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Variables no permitidas: ${invalidVars.join(', ')}`
+      });
+    }
+
+    // Leer archivo .env actual
+    const envPath = path.join(__dirname, '..', '.env');
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const lines = envContent.split('\n');
+    
+    // Actualizar líneas existentes y agregar nuevas
+    const updatedLines = [];
+    const processedVars = new Set();
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const [key] = trimmedLine.split('=');
+        if (allowedVars.includes(key) && envVars.hasOwnProperty(key)) {
+          updatedLines.push(`${key}=${envVars[key]}`);
+          processedVars.add(key);
+        } else {
+          updatedLines.push(line);
+        }
+      } else {
+        updatedLines.push(line);
+      }
+    });
+    
+    // Agregar variables nuevas que no existían
+    Object.keys(envVars).forEach(key => {
+      if (!processedVars.has(key)) {
+        updatedLines.push(`${key}=${envVars[key]}`);
+      }
+    });
+    
+    // Escribir archivo .env actualizado
+    fs.writeFileSync(envPath, updatedLines.join('\n'));
+
+    res.json({
+      success: true,
+      message: 'Variables de entorno actualizadas exitosamente. Reinicia el servidor para aplicar los cambios.'
+    });
+  } catch (error) {
+    console.error('Error al actualizar variables de entorno:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
