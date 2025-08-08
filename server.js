@@ -119,7 +119,7 @@ app.get('/api/payment/success', (req, res) => {
         <div style="margin: 20px 0;">
           <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         </div>
-        <p><a href="${redirectUrl}" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
+        <p><a href="` + redirectUrl + `" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
       </div>
       <style>
         @keyframes spin {
@@ -128,10 +128,10 @@ app.get('/api/payment/success', (req, res) => {
         }
       </style>
       <script>
-           console.log('Redirigiendo a:', '${redirectUrl}');
+           console.log('Redirigiendo a:', '` + redirectUrl + `');
            setTimeout(function() {
              try {
-               window.location.href = '${redirectUrl}';
+               window.location.href = '` + redirectUrl + `';
              } catch (e) {
                console.error('Error en redirección:', e);
                document.getElementById('manualLink').click();
@@ -162,7 +162,7 @@ app.get('/api/payment/cancel', (req, res) => {
         <div style="margin: 20px 0;">
           <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         </div>
-        <p><a href="${redirectUrl}" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
+        <p><a href="` + redirectUrl + `" id="manualLink">Haz clic aquí si no eres redirigido automáticamente</a></p>
       </div>
       <style>
         @keyframes spin {
@@ -171,10 +171,10 @@ app.get('/api/payment/cancel', (req, res) => {
         }
       </style>
       <script>
-           console.log('Redirigiendo a:', '${redirectUrl}');
+           console.log('Redirigiendo a:', '` + redirectUrl + `');
            setTimeout(function() {
              try {
-               window.location.href = '${redirectUrl}';
+               window.location.href = '` + redirectUrl + `';
              } catch (e) {
                console.error('Error en redirección:', e);
                document.getElementById('manualLink').click();

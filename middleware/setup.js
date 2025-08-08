@@ -4,7 +4,7 @@ const path = require('path');
 // Middleware para verificar si la aplicación necesita configuración inicial
 const checkSetup = (req, res, next) => {
   // Rutas que no requieren verificación de setup
-  const excludedPaths = ['/api/setup', '/setup', '/api/setup/test-connection', '/api/setup/create-database'];
+  const excludedPaths = ['/api/setup', '/setup', '/api/setup/test-connection', '/api/setup/create-database', '/api/payment/success', '/api/payment/cancel'];
   
   if (excludedPaths.some(path => req.path.startsWith(path))) {
     return next();
