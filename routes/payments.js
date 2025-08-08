@@ -16,8 +16,22 @@ paypal.configure({
 router.post('/create-payment', [
   body('ticketIds').isArray({ min: 1 }),
   body('ticketIds.*').isInt({ min: 1 }),
-  body('returnUrl').isURL(),
-  body('cancelUrl').isURL()
+  body('returnUrl').custom((value) => {
+    // Permitir URLs localhost en desarrollo
+    if (value.startsWith('http://localhost:') || value.startsWith('https://localhost:')) {
+      return true;
+    }
+    // Para producción, validar URL completa
+    return /^https?:\/\/.+/.test(value);
+  }),
+  body('cancelUrl').custom((value) => {
+    // Permitir URLs localhost en desarrollo
+    if (value.startsWith('http://localhost:') || value.startsWith('https://localhost:')) {
+      return true;
+    }
+    // Para producción, validar URL completa
+    return /^https?:\/\/.+/.test(value);
+  })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -161,11 +175,27 @@ router.post('/execute-payment', [
       if (error) {
         console.error('Error al ejecutar pago en PayPal:', error);
         
-        // Marcar pagos como fallidos
-        await conn.execute(
-          'UPDATE payments SET status = "failed" WHERE paypal_payment_id = ?',
+        // Obtener tickets asociados antes de eliminar pagos
+        const [ticketsToDelete] = await conn.execute(
+          'SELECT ticket_id FROM payments WHERE paypal_payment_id = ?',
           [paymentId]
         );
+        
+        // Eliminar pagos fallidos
+        await conn.execute(
+          'DELETE FROM payments WHERE paypal_payment_id = ?',
+          [paymentId]
+        );
+        
+        // Eliminar tickets asociados para liberarlos
+        if (ticketsToDelete.length > 0) {
+          const ticketIds = ticketsToDelete.map(t => t.ticket_id);
+          const placeholders = ticketIds.map(() => '?').join(',');
+          await conn.execute(
+            `DELETE FROM tickets WHERE id IN (${placeholders})`,
+            ticketIds
+          );
+        }
         
         return res.status(400).json({ message: 'Error al procesar el pago' });
       }
@@ -320,11 +350,10 @@ router.post('/refund/:paymentId', async (req, res) => {
             [paymentId]
           );
 
-          // Actualizar tickets
+          // Eliminar tickets reembolsados para liberarlos
           await conn.execute(`
-            UPDATE tickets t
+            DELETE t FROM tickets t
             JOIN payments p ON t.id = p.ticket_id
-            SET t.payment_status = 'failed'
             WHERE p.paypal_payment_id = ?
           `, [paymentId]);
 

@@ -23,18 +23,18 @@ router.get('/available/:rifaId', async (req, res) => {
     
     const rifa = rifas[0];
     
-    // Obtener tickets ya vendidos
-    const [soldTickets] = await conn.execute(
-      'SELECT ticket_number FROM tickets WHERE rifa_id = ? AND payment_status = "completed" ORDER BY ticket_number ASC',
+    // Obtener tickets no disponibles (vendidos o pendientes)
+    const [unavailableTickets] = await conn.execute(
+      'SELECT ticket_number FROM tickets WHERE rifa_id = ? AND payment_status IN ("pending", "completed") ORDER BY ticket_number ASC',
       [rifaId]
     );
     
-    const soldNumbers = soldTickets.map(ticket => ticket.ticket_number);
+    const unavailableNumbers = unavailableTickets.map(ticket => ticket.ticket_number);
     
     // Generar array de tickets disponibles
     const availableTickets = [];
     for (let i = 1; i <= rifa.total_tickets; i++) {
-      if (!soldNumbers.includes(i)) {
+      if (!unavailableNumbers.includes(i)) {
         availableTickets.push(i);
       }
     }
@@ -43,8 +43,8 @@ router.get('/available/:rifaId', async (req, res) => {
       rifaId: parseInt(rifaId),
       totalTickets: rifa.total_tickets,
       minTickets: rifa.min_tickets || 1,
-      soldTickets: soldNumbers,
-      soldTicketsCount: soldNumbers.length,
+      soldTickets: unavailableNumbers,
+      soldTicketsCount: unavailableNumbers.length,
       availableTickets,
       availableCount: availableTickets.length
     });
@@ -121,6 +121,15 @@ router.post('/reserve', [
       }
       
       // Verificar que los tickets están disponibles
+      // Primero limpiar tickets pendientes expirados (más de 5 minutos)
+      await conn.execute(
+        `DELETE FROM tickets 
+         WHERE rifa_id = ? AND payment_status = 'pending' 
+         AND purchased_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)`,
+        [rifaId]
+      );
+      
+      // Ahora verificar disponibilidad
       const [existingTickets] = await conn.execute(
         `SELECT ticket_number FROM tickets 
          WHERE rifa_id = ? AND ticket_number IN (${ticketNumbers.map(() => '?').join(',')}) 
@@ -167,7 +176,7 @@ router.post('/reserve', [
           buyerName,
           buyerEmail,
           totalPrice,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 minutos para completar el pago
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutos para completar el pago
         }
       });
       
@@ -200,18 +209,18 @@ router.get('/reservation/:ticketId', async (req, res) => {
     
     const ticket = tickets[0];
     
-    // Si el ticket está pendiente por más de 15 minutos, cancelarlo
+    // Si el ticket está pendiente por más de 5 minutos, eliminarlo para liberarlo
     if (ticket.payment_status === 'pending') {
-      const createdAt = new Date(ticket.created_at);
+      const purchasedAt = new Date(ticket.purchased_at);
       const now = new Date();
-      const diffMinutes = (now - createdAt) / (1000 * 60);
+      const diffMinutes = (now - purchasedAt) / (1000 * 60);
       
-      if (diffMinutes > 15) {
+      if (diffMinutes > 5) {
         await conn.execute(
-          'UPDATE tickets SET payment_status = "failed" WHERE id = ?',
+          'DELETE FROM tickets WHERE id = ?',
           [ticketId]
         );
-        ticket.payment_status = 'failed';
+        return res.status(404).json({ message: 'Ticket expirado y liberado' });
       }
     }
     
@@ -285,11 +294,11 @@ router.post('/cleanup-expired', async (req, res) => {
   try {
     const conn = await getConnection();
     
-    // Eliminar tickets pendientes de más de 15 minutos
+    // Eliminar tickets pendientes de más de 5 minutos
     const [result] = await conn.execute(`
       DELETE FROM tickets 
       WHERE payment_status = 'pending' 
-      AND created_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+      AND purchased_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
     `);
     
     res.json({ 
@@ -301,5 +310,7 @@ router.post('/cleanup-expired', async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
+
+
 
 module.exports = router;

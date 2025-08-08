@@ -21,6 +21,10 @@ router.get('/public', async (req, res) => {
       configObj[config.config_key] = config.config_value;
     });
     
+    // Agregar configuración de PayPal para el frontend
+    configObj.paypal_client_id = process.env.PAYPAL_CLIENT_ID || 'sb';
+    configObj.paypal_mode = process.env.PAYPAL_MODE || 'sandbox';
+    
     res.json({
       success: true,
       data: configObj

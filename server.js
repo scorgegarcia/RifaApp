@@ -107,6 +107,16 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/config', configRoutes);
 
+// Rutas de retorno de PayPal
+app.get('/payment/success', (req, res) => {
+  const { paymentId, PayerID } = req.query;
+  res.redirect(`http://localhost:5173/payment/success?paymentId=${paymentId}&PayerID=${PayerID}`);
+});
+
+app.get('/payment/cancel', (req, res) => {
+  res.redirect('http://localhost:5173/payment/cancel');
+});
+
 // Ruta catch-all para React Router (después del middleware)
 app.get('*', (req, res) => {
   if (process.env.NODE_ENV !== 'production') {

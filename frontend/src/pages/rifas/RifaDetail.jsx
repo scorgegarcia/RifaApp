@@ -82,13 +82,27 @@ const RifaDetail = () => {
         ticketNumbers: selectedTickets
       };
 
-      const response = await axios.post('/api/tickets/reserve', purchaseData);
+      // Primero reservar los tickets
+      const reserveResponse = await axios.post('/api/tickets/reserve', purchaseData);
       
-      // Redirigir a PayPal
-      if (response.data.approval_url) {
-        window.location.href = response.data.approval_url;
+      if (reserveResponse.data.reservation) {
+        // Crear el pago en PayPal con los tickets reservados
+        const paymentData = {
+           ticketIds: reserveResponse.data.reservation.ticketIds,
+           returnUrl: `http://localhost:3000/payment/success`,
+           cancelUrl: `http://localhost:3000/payment/cancel`
+         };
+        
+        const paymentResponse = await axios.post('/api/payments/create-payment', paymentData);
+        
+        // Redirigir a PayPal
+        if (paymentResponse.data.approvalUrl) {
+          window.location.href = paymentResponse.data.approvalUrl;
+        } else {
+          toast.error('Error al procesar el pago con PayPal');
+        }
       } else {
-        toast.error('Error al procesar el pago');
+        toast.error('Error al reservar los tickets');
       }
     } catch (error) {
       console.error('Error al procesar la compra:', error);

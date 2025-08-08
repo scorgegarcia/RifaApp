@@ -17,25 +17,24 @@ const PaymentSuccess = () => {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (!paymentId || !payerId || !token) {
+    if (!paymentId || !payerId) {
       setError('Parámetros de pago inválidos');
       setLoading(false);
       return;
     }
 
     executePayment();
-  }, [paymentId, payerId, token]);
+  }, [paymentId, payerId]);
 
   const executePayment = async () => {
     try {
       setLoading(true);
-      const response = await axios.post('/api/payments/execute', {
+      const response = await axios.post('/api/payments/execute-payment', {
         paymentId,
-        payerId,
-        token
+        payerId
       });
 
-      setPurchase(response.data.purchase);
+      setPurchase(response.data);
       toast.success('¡Pago procesado exitosamente!');
     } catch (error) {
       console.error('Error al ejecutar el pago:', error);

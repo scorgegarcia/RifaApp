@@ -119,12 +119,29 @@ const initializeDatabase = async () => {
         buyer_name VARCHAR(255),
         buyer_email VARCHAR(255),
         buyer_phone VARCHAR(20),
-        payment_status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+        payment_status ENUM('pending', 'completed') DEFAULT 'pending',
         payment_method VARCHAR(50),
         payment_reference VARCHAR(255),
         purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (rifa_id) REFERENCES rifas(id) ON DELETE CASCADE,
         UNIQUE KEY unique_ticket (rifa_id, ticket_number)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // Crear tabla de pagos
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ticket_id INT NOT NULL,
+        payment_method VARCHAR(50) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        currency VARCHAR(3) DEFAULT 'USD',
+        status ENUM('pending', 'completed', 'refunded') DEFAULT 'pending',
+        paypal_payment_id VARCHAR(255),
+        paypal_payer_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
