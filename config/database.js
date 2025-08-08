@@ -85,6 +85,7 @@ const initializeDatabase = async () => {
         description TEXT,
         total_tickets INT NOT NULL,
         ticket_price DECIMAL(10,2) NOT NULL,
+        min_tickets INT DEFAULT 1,
         allow_single_tickets BOOLEAN DEFAULT true,
         draw_date DATE NOT NULL,
         image_url VARCHAR(500),

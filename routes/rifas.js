@@ -241,6 +241,7 @@ router.post('/', authenticateToken, isAdmin, [
   body('description').optional().trim(),
   body('total_tickets').isInt({ min: 1, max: 1000000 }),
   body('ticket_price').isFloat({ min: 0.01 }),
+  body('min_tickets').optional().isInt({ min: 1 }),
   body('allow_single_tickets').optional().isBoolean(),
   body('draw_date').isISO8601(),
   body('image_url').optional().isURL()
@@ -256,6 +257,7 @@ router.post('/', authenticateToken, isAdmin, [
       description,
       total_tickets,
       ticket_price,
+      min_tickets = 1,
       allow_single_tickets = true,
       draw_date,
       image_url
@@ -271,14 +273,15 @@ router.post('/', authenticateToken, isAdmin, [
 
     // Crear la rifa
     const [result] = await conn.execute(`
-      INSERT INTO rifas (title, description, image_url, total_tickets, ticket_price, allow_single_tickets, draw_date, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO rifas (title, description, image_url, total_tickets, ticket_price, min_tickets, allow_single_tickets, draw_date, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       title,
       description || null,
       image_url || null,
       total_tickets,
       ticket_price,
+      min_tickets,
       allow_single_tickets,
       draw_date,
       req.user.userId
@@ -293,6 +296,7 @@ router.post('/', authenticateToken, isAdmin, [
         image_url: image_url || null,
         total_tickets,
         ticket_price,
+        min_tickets,
         allow_single_tickets,
         draw_date,
         status: 'active'
@@ -310,6 +314,7 @@ router.put('/:id', authenticateToken, isOwnerOrAdmin(), upload.single('image'), 
   body('description').optional().trim(),
   body('total_tickets').optional().isInt({ min: 1, max: 1000000 }),
   body('ticket_price').optional().isFloat({ min: 0.01 }),
+  body('min_tickets').optional().isInt({ min: 1 }),
   body('allow_single_tickets').optional().isBoolean(),
   body('draw_date').optional().isISO8601(),
   body('password').notEmpty().withMessage('La contraseña es requerida para confirmar los cambios')
@@ -356,7 +361,7 @@ router.put('/:id', authenticateToken, isOwnerOrAdmin(), upload.single('image'), 
     const updates = {};
     
     // Permitir actualizar más campos
-    const allowedFields = ['title', 'description', 'total_tickets', 'ticket_price', 'allow_single_tickets', 'draw_date'];
+    const allowedFields = ['title', 'description', 'total_tickets', 'ticket_price', 'min_tickets', 'allow_single_tickets', 'draw_date'];
     
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {

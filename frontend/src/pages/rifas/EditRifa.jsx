@@ -72,6 +72,7 @@ const EditRifa = () => {
       setValue('description', rifa.description || '');
       setValue('total_tickets', rifa.total_tickets);
       setValue('ticket_price', rifa.ticket_price);
+      setValue('min_tickets', rifa.min_tickets || 1);
       setValue('allow_single_tickets', rifa.allow_single_tickets);
       setValue('draw_date', format(new Date(rifa.draw_date), 'yyyy-MM-dd'));
       
@@ -387,6 +388,45 @@ const EditRifa = () => {
                   {errors.ticket_price && (
                     <p className="mt-1 text-sm text-red-600">{errors.ticket_price.message}</p>
                   )}
+                </div>
+
+                {/* Cantidad mínima de boletos */}
+                <div>
+                  <label htmlFor="min_tickets" className="block text-sm font-medium text-gray-700">
+                    Cantidad Mínima de Boletos *
+                  </label>
+                  <div className="mt-1 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Users className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      {...register('min_tickets', {
+                        required: 'La cantidad mínima de boletos es requerida',
+                        min: {
+                          value: 1,
+                          message: 'La cantidad mínima debe ser al menos 1'
+                        },
+                        max: {
+                          value: 100,
+                          message: 'La cantidad máxima es 100 boletos'
+                        },
+                        valueAsNumber: true
+                      })}
+                      type="number"
+                      min="1"
+                      max="100"
+                      className={`input-field pl-10 ${
+                        errors.min_tickets ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="1"
+                    />
+                  </div>
+                  {errors.min_tickets && (
+                    <p className="mt-1 text-sm text-red-600">{errors.min_tickets.message}</p>
+                  )}
+                  <p className="mt-1 text-sm text-gray-500">
+                    Cantidad mínima de boletos que puede comprar un usuario
+                  </p>
                 </div>
 
                 {/* Fecha del sorteo */}

@@ -28,6 +28,12 @@ const RifaDetail = () => {
     fetchRifaDetail();
   }, [id]);
 
+  useEffect(() => {
+    if (rifa && rifa.min_tickets) {
+      setSelectedQuantity(rifa.min_tickets);
+    }
+  }, [rifa]);
+
   const fetchRifaDetail = async () => {
     try {
       setLoading(true);
@@ -340,12 +346,21 @@ const RifaDetail = () => {
                           onChange={(e) => setSelectedQuantity(parseInt(e.target.value))}
                           className="input w-full"
                         >
-                          {Array.from({ length: Math.min(availableTickets, 10) }, (_, i) => i + 1).map((num) => (
-                            <option key={num} value={num}>
-                              {num} boleto{num > 1 ? 's' : ''}
-                            </option>
-                          ))}
+                          {Array.from({ length: Math.min(availableTickets, 10) }, (_, i) => {
+                            const minTickets = rifa.min_tickets || 1;
+                            const num = i + minTickets;
+                            return num <= Math.min(availableTickets, 10) ? (
+                              <option key={num} value={num}>
+                                {num} boleto{num > 1 ? 's' : ''}
+                              </option>
+                            ) : null;
+                          }).filter(Boolean)}
                         </select>
+                        {rifa.min_tickets > 1 && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            Mínimo {rifa.min_tickets} boletos por compra
+                          </p>
+                        )}
                       </div>
                     ) : purchaseType === 'package' && packages.length > 0 ? (
                       <div>

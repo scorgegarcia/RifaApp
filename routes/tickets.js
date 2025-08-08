@@ -13,7 +13,7 @@ router.get('/available/:rifaId', async (req, res) => {
     
     // Verificar que la rifa existe y está activa
     const [rifas] = await conn.execute(
-      'SELECT id, total_tickets, status FROM rifas WHERE id = ? AND status = "active"',
+      'SELECT id, total_tickets, min_tickets, status FROM rifas WHERE id = ? AND status = "active"',
       [rifaId]
     );
     
@@ -42,6 +42,7 @@ router.get('/available/:rifaId', async (req, res) => {
     res.json({
       rifaId: parseInt(rifaId),
       totalTickets: rifa.total_tickets,
+      minTickets: rifa.min_tickets || 1,
       soldTickets: soldNumbers.length,
       availableTickets,
       availableCount: availableTickets.length
@@ -85,7 +86,7 @@ router.post('/reserve', [
     try {
       // Verificar que la rifa existe y está activa
       const [rifas] = await conn.execute(
-        'SELECT id, total_tickets, ticket_price, allow_single_tickets, status, draw_date FROM rifas WHERE id = ? AND status = "active"',
+        'SELECT id, total_tickets, ticket_price, allow_single_tickets, min_tickets, status, draw_date FROM rifas WHERE id = ? AND status = "active"',
         [rifaId]
       );
       
@@ -108,6 +109,12 @@ router.post('/reserve', [
       // Verificar si se permite compra de tickets individuales
       if (!packageId && !rifa.allow_single_tickets && ticketNumbers.length === 1) {
         throw new Error('Esta rifa no permite la compra de tickets individuales');
+      }
+      
+      // Verificar cantidad mínima de boletos
+      const minTickets = rifa.min_tickets || 1;
+      if (!packageId && ticketNumbers.length < minTickets) {
+        throw new Error(`Debe comprar al menos ${minTickets} boleto${minTickets > 1 ? 's' : ''}`);
       }
       
       // Verificar que todos los números están dentro del rango
