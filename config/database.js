@@ -58,10 +58,24 @@ const initializeDatabase = async () => {
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(20),
         role ENUM('user', 'admin') DEFAULT 'user',
+        is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // Agregar columna is_active si no existe (para bases de datos existentes)
+    try {
+      await conn.execute(`
+        ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true
+      `);
+      console.log('✅ Columna is_active agregada a la tabla users');
+    } catch (error) {
+      // La columna ya existe, ignorar el error
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ Columna is_active ya existe en la tabla users');
+      }
+    }
 
     // Crear tabla de rifas
     await conn.execute(`
@@ -125,6 +139,13 @@ const initializeDatabase = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // Insertar configuraciones por defecto
+    await conn.execute(`
+      INSERT IGNORE INTO config (config_key, config_value) VALUES 
+      ('app_title', 'Rifa App'),
+      ('app_logo_url', '')
+    `);
+
     console.log('✅ Base de datos inicializada');
   } catch (error) {
     console.error('❌ Error al inicializar la base de datos:', error);
@@ -132,8 +153,21 @@ const initializeDatabase = async () => {
   }
 };
 
+const checkDatabaseConnection = async () => {
+  try {
+    const conn = await getConnection();
+    await conn.ping();
+    console.log('✅ Conexión a la base de datos verificada');
+    return true;
+  } catch (error) {
+    console.error('❌ Error de conexión a la base de datos:', error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   getConnection,
   createDatabase,
-  initializeDatabase
+  initializeDatabase,
+  checkDatabaseConnection
 };

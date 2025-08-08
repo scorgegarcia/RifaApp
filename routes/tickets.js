@@ -133,7 +133,7 @@ router.post('/reserve', [
       let packageInfo = null;
       if (packageId) {
         const [packages] = await conn.execute(
-          'SELECT * FROM rifa_packages WHERE id = ? AND rifa_id = ?',
+          'SELECT * FROM packages WHERE id = ? AND rifa_id = ?',
           [packageId, rifaId]
         );
         
@@ -214,7 +214,7 @@ router.get('/reservation/:ticketId', async (req, res) => {
              rp.name as package_name, rp.price as package_price
       FROM tickets t
       JOIN rifas r ON t.rifa_id = r.id
-      LEFT JOIN rifa_packages rp ON t.package_id = rp.id
+      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.id = ?
     `, [ticketId]);
     
@@ -293,7 +293,7 @@ router.get('/rifa/:rifaId', optionalAuth, async (req, res) => {
     const [tickets] = await conn.execute(`
       SELECT t.*, rp.name as package_name
       FROM tickets t
-      LEFT JOIN rifa_packages rp ON t.package_id = rp.id
+      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.rifa_id = ?
       ORDER BY t.ticket_number ASC
     `, [rifaId]);

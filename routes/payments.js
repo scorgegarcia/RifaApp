@@ -35,7 +35,7 @@ router.post('/create-payment', [
              rp.name as package_name, rp.price as package_price
       FROM tickets t
       JOIN rifas r ON t.rifa_id = r.id
-      LEFT JOIN rifa_packages rp ON t.package_id = rp.id
+      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.id IN (${placeholders}) AND t.payment_status = 'pending'
     `, ticketIds);
 

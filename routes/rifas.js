@@ -171,7 +171,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     
     // Obtener paquetes de la rifa
     const [packages] = await conn.execute(
-      'SELECT * FROM rifa_packages WHERE rifa_id = ? ORDER BY ticket_quantity ASC',
+      'SELECT * FROM packages WHERE rifa_id = ? ORDER BY ticket_quantity ASC',
       [id]
     );
     
@@ -181,7 +181,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     if (req.user && (req.user.userId === rifa.created_by || req.user.role === 'admin')) {
       // Obtener tickets vendidos
       const [tickets] = await conn.execute(
-        'SELECT ticket_number, buyer_name, buyer_email, payment_status, created_at FROM tickets WHERE rifa_id = ? ORDER BY ticket_number ASC',
+        'SELECT ticket_number, buyer_name, buyer_email, payment_status, purchased_at FROM tickets WHERE rifa_id = ? ORDER BY ticket_number ASC',
         [id]
       );
       rifa.tickets = tickets;
@@ -206,7 +206,7 @@ router.post('/upload-image', authenticateToken, upload.single('image'), async (r
     formData.append('expiration', '15552000'); // 6 meses
 
     const response = await axios.post(
-      `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API}`,
+      `https://api.imgbb.com/1/upload?key=${process.env.IMGBB_API_KEY}`,
       formData,
       {
         headers: formData.getHeaders(),
@@ -459,7 +459,7 @@ router.post('/:id/packages', authenticateToken, isOwnerOrAdmin(), [
     }
     
     const [result] = await conn.execute(
-      'INSERT INTO rifa_packages (rifa_id, name, ticket_quantity, price, discount_percentage) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO packages (rifa_id, name, ticket_quantity, price, discount_percentage) VALUES (?, ?, ?, ?, ?)',
       [id, name, ticket_quantity, price, discount_percentage]
     );
     
@@ -496,7 +496,7 @@ router.delete('/:rifaId/packages/:packageId', authenticateToken, isOwnerOrAdmin(
       return res.status(400).json({ message: 'No se puede eliminar un paquete con tickets vendidos' });
     }
     
-    await conn.execute('DELETE FROM rifa_packages WHERE id = ? AND rifa_id = ?', [packageId, rifaId]);
+    await conn.execute('DELETE FROM packages WHERE id = ? AND rifa_id = ?', [packageId, rifaId]);
     
     res.json({ message: 'Paquete eliminado exitosamente' });
   } catch (error) {

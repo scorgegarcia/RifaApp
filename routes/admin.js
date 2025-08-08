@@ -140,7 +140,7 @@ router.get('/stats', async (req, res) => {
     const [ticketStats] = await conn.execute(
       `SELECT 
         COUNT(*) as totalTicketsSold,
-        COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1 END) as ticketsSoldThisMonth
+        COUNT(CASE WHEN purchased_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1 END) as ticketsSoldThisMonth
       FROM tickets WHERE payment_status = 'completed'`
     );
     

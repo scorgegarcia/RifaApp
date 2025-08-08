@@ -1,5 +1,6 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
@@ -230,8 +231,32 @@ router.post('/complete', async (req, res) => {
     require('dotenv').config();
 
     // Ejecutar las migraciones de la base de datos
-    const { initializeDatabase } = require('../config/database');
+    const { initializeDatabase, getConnection } = require('../config/database');
     await initializeDatabase();
+
+    // Crear usuario administrador
+    const conn = await getConnection();
+    
+    // Verificar si ya existe un usuario administrador
+    const [existingAdmin] = await conn.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [adminEmail]
+    );
+    
+    if (existingAdmin.length === 0) {
+      // Hashear la contraseña del administrador
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      
+      // Crear el usuario administrador
+      await conn.execute(
+        'INSERT INTO users (email, password, name, phone, role, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+        [adminEmail, hashedPassword, adminName, adminPhone || null, 'admin', true]
+      );
+      
+      console.log('✅ Usuario administrador creado exitosamente');
+    } else {
+      console.log('ℹ️ Usuario administrador ya existe');
+    }
 
     res.json({
       success: true,
