@@ -21,12 +21,9 @@ const CreateRifa = () => {
     formState: { errors }
   } = useForm({
     defaultValues: {
-      allow_single_tickets: true,
       min_tickets: 1
     }
   });
-
-  const watchAllowSingleTickets = watch('allow_single_tickets');
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -76,7 +73,6 @@ const CreateRifa = () => {
       // Preparar datos para enviar
       const rifaData = {
         ...data,
-        allow_single_tickets: data.allow_single_tickets ? '1' : '0',
         image_url: imageUrl
       };
       
@@ -325,36 +321,7 @@ const CreateRifa = () => {
                 </div>
               </div>
 
-              {/* Permitir boletos individuales */}
-              <div className="flex items-center">
-                <input
-                  {...register('allow_single_tickets')}
-                  id="allow_single_tickets"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <label htmlFor="allow_single_tickets" className="ml-2 block text-sm text-gray-900">
-                  Permitir compra de boletos individuales
-                </label>
-              </div>
-              
-              {!watchAllowSingleTickets && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <div className="flex">
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">
-                        Boletos individuales deshabilitados
-                      </h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        <p>
-                          Los usuarios solo podrán comprar boletos a través de los paquetes que crees.
-                          Asegúrate de crear al menos un paquete después de crear la rifa.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
             </div>
 
             {/* Imagen */}

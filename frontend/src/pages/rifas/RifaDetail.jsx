@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Users, DollarSign, Trophy, ShoppingCart, Clock, User, Package } from 'lucide-react';
+import { Calendar, Users, DollarSign, Trophy, ShoppingCart, Clock, User } from 'lucide-react';
 import { safeFormatDate } from '../../utils/dateUtils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import TicketSelector from '../../components/TicketSelector';
@@ -13,13 +13,9 @@ const RifaDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [rifa, setRifa] = useState(null);
-  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [selectedQuantity, setSelectedQuantity] = useState(1);
-  const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedTickets, setSelectedTickets] = useState([]);
-  const [purchaseType, setPurchaseType] = useState('tickets'); // 'tickets', 'individual' or 'package'
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     email: '',
@@ -30,22 +26,14 @@ const RifaDetail = () => {
     fetchRifaDetail();
   }, [id]);
 
-  useEffect(() => {
-    if (rifa && rifa.min_tickets) {
-      setSelectedQuantity(rifa.min_tickets);
-    }
-  }, [rifa]);
+
 
   const fetchRifaDetail = async () => {
     try {
       setLoading(true);
-      const [rifaResponse, packagesResponse] = await Promise.all([
-        axios.get(`/api/rifas/${id}`),
-        axios.get(`/api/rifas/${id}/packages`)
-      ]);
+      const rifaResponse = await axios.get(`/api/rifas/${id}`);
       
       setRifa(rifaResponse.data.rifa);
-      setPackages(packagesResponse.data);
     } catch (error) {
       console.error('Error al cargar la rifa:', error);
       if (error.response?.status === 404) {
@@ -73,61 +61,34 @@ const RifaDetail = () => {
       }
     }
 
-    // Validar selección según el tipo de compra
-    if (purchaseType === 'tickets' && selectedTickets.length === 0) {
+    // Validar selección de boletos
+    if (selectedTickets.length === 0) {
       toast.error('Debes seleccionar al menos un boleto');
       return;
     }
 
-    if (purchaseType === 'tickets' && selectedTickets.length < (rifa.min_tickets || 1)) {
+    if (selectedTickets.length < (rifa.min_tickets || 1)) {
       toast.error(`Debes seleccionar al menos ${rifa.min_tickets || 1} boleto${(rifa.min_tickets || 1) > 1 ? 's' : ''}`);
       return;
     }
 
     setPurchasing(true);
     try {
-      let purchaseData;
+      const purchaseData = {
+        rifaId: rifa.id,
+        buyerName: user ? user.name : customerInfo.name,
+        buyerEmail: user ? user.email : customerInfo.email,
+        buyerPhone: user ? user.phone : customerInfo.phone,
+        ticketNumbers: selectedTickets
+      };
 
-      if (purchaseType === 'tickets') {
-        // Nueva lógica para boletos específicos
-        purchaseData = {
-          rifaId: rifa.id,
-          buyerName: user ? user.name : customerInfo.name,
-          buyerEmail: user ? user.email : customerInfo.email,
-          buyerPhone: user ? user.phone : customerInfo.phone,
-          ticketNumbers: selectedTickets
-        };
-
-        const response = await axios.post('/api/tickets/reserve', purchaseData);
-        
-        // Redirigir a PayPal
-        if (response.data.approval_url) {
-          window.location.href = response.data.approval_url;
-        } else {
-          toast.error('Error al procesar el pago');
-        }
+      const response = await axios.post('/api/tickets/reserve', purchaseData);
+      
+      // Redirigir a PayPal
+      if (response.data.approval_url) {
+        window.location.href = response.data.approval_url;
       } else {
-        // Lógica existente para compras por cantidad o paquetes
-        purchaseData = {
-          rifa_id: rifa.id,
-          purchase_type: purchaseType,
-          customer_info: user ? null : customerInfo
-        };
-
-        if (purchaseType === 'individual') {
-          purchaseData.quantity = selectedQuantity;
-        } else {
-          purchaseData.package_id = selectedPackage.id;
-        }
-
-        const response = await axios.post('/api/purchases', purchaseData);
-        
-        // Redirigir a PayPal
-        if (response.data.approval_url) {
-          window.location.href = response.data.approval_url;
-        } else {
-          toast.error('Error al procesar el pago');
-        }
+        toast.error('Error al procesar el pago');
       }
     } catch (error) {
       console.error('Error al procesar la compra:', error);
@@ -164,14 +125,7 @@ const RifaDetail = () => {
   };
 
   const calculateTotal = () => {
-    if (purchaseType === 'tickets') {
-      return (selectedTickets.length * rifa.ticket_price).toFixed(2);
-    } else if (purchaseType === 'individual') {
-      return (selectedQuantity * rifa.ticket_price).toFixed(2);
-    } else if (selectedPackage) {
-      return selectedPackage.price.toFixed(2);
-    }
-    return '0.00';
+    return (selectedTickets.length * rifa.ticket_price).toFixed(2);
   };
 
   const getAvailableTickets = () => {
@@ -341,124 +295,14 @@ const RifaDetail = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {/* Tipo de compra */}
+                    {/* Selección de boletos */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Tipo de compra
-                      </label>
-                      <div className="space-y-2">
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="purchaseType"
-                            value="tickets"
-                            checked={purchaseType === 'tickets'}
-                            onChange={(e) => setPurchaseType(e.target.value)}
-                            className="mr-2"
-                          />
-                          <span>Seleccionar boletos específicos</span>
-                        </label>
-                        
-                        {rifa.allow_single_ticket && (
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name="purchaseType"
-                              value="individual"
-                              checked={purchaseType === 'individual'}
-                              onChange={(e) => setPurchaseType(e.target.value)}
-                              className="mr-2"
-                            />
-                            <span>Boletos aleatorios</span>
-                          </label>
-                        )}
-                        
-                        {packages.length > 0 && (
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name="purchaseType"
-                              value="package"
-                              checked={purchaseType === 'package'}
-                              onChange={(e) => setPurchaseType(e.target.value)}
-                              className="mr-2"
-                            />
-                            <span>Paquetes</span>
-                          </label>
-                        )}
-                      </div>
+                      <TicketSelector 
+                        rifa={rifa}
+                        onSelectionChange={handleTicketSelectionChange}
+                        minTickets={rifa.min_tickets || 1}
+                      />
                     </div>
-                    
-                    {/* Selección de boletos específicos */}
-                    {purchaseType === 'tickets' ? (
-                      <div>
-                        <TicketSelector 
-                          rifa={rifa}
-                          onSelectionChange={handleTicketSelectionChange}
-                          minTickets={rifa.min_tickets || 1}
-                        />
-                      </div>
-                    ) : purchaseType === 'individual' && rifa.allow_single_ticket ? (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Cantidad de boletos
-                        </label>
-                        <select
-                          value={selectedQuantity}
-                          onChange={(e) => setSelectedQuantity(parseInt(e.target.value))}
-                          className="input w-full"
-                        >
-                          {Array.from({ length: Math.min(availableTickets, 10) }, (_, i) => {
-                            const minTickets = rifa.min_tickets || 1;
-                            const num = i + minTickets;
-                            return num <= Math.min(availableTickets, 10) ? (
-                              <option key={num} value={num}>
-                                {num} boleto{num > 1 ? 's' : ''}
-                              </option>
-                            ) : null;
-                          }).filter(Boolean)}
-                        </select>
-                        {rifa.min_tickets > 1 && (
-                          <p className="mt-1 text-sm text-gray-500">
-                            Mínimo {rifa.min_tickets} boletos por compra
-                          </p>
-                        )}
-                      </div>
-                    ) : purchaseType === 'package' && packages.length > 0 ? (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Seleccionar paquete
-                        </label>
-                        <div className="space-y-2">
-                          {packages.map((pkg) => (
-                            <label key={pkg.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                              <input
-                                type="radio"
-                                name="package"
-                                value={pkg.id}
-                                checked={selectedPackage?.id === pkg.id}
-                                onChange={() => setSelectedPackage(pkg)}
-                                className="mr-3"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">{pkg.name}</span>
-                                  <span className="text-primary-600 font-bold">${pkg.price}</span>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  {pkg.tickets} boletos • ${(pkg.price / pkg.tickets).toFixed(2)} c/u
-                                </div>
-                                {pkg.description && (
-                                  <div className="text-sm text-gray-500 mt-1">
-                                    {pkg.description}
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
                     
                     {/* Información del cliente (si no está autenticado) */}
                     {!user && (
@@ -501,8 +345,7 @@ const RifaDetail = () => {
                       onClick={handlePurchase}
                       disabled={
                         purchasing || 
-                        (purchaseType === 'tickets' && selectedTickets.length < (rifa.min_tickets || 1)) ||
-                        (purchaseType === 'package' && !selectedPackage)
+                        selectedTickets.length < (rifa.min_tickets || 1)
                       }
                       className="btn-primary w-full"
                     >

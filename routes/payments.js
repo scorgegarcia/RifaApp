@@ -31,11 +31,9 @@ router.post('/create-payment', [
     // Obtener información de los tickets
     const placeholders = ticketIds.map(() => '?').join(',');
     const [tickets] = await conn.execute(`
-      SELECT t.*, r.title as rifa_title, r.ticket_price, r.draw_date,
-             rp.name as package_name, rp.price as package_price
+      SELECT t.*, r.title as rifa_title, r.ticket_price, r.draw_date
       FROM tickets t
       JOIN rifas r ON t.rifa_id = r.id
-      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.id IN (${placeholders}) AND t.payment_status = 'pending'
     `, ticketIds);
 
@@ -67,19 +65,8 @@ router.post('/create-payment', [
     let totalAmount = 0;
     const items = [];
 
-    if (tickets[0].purchase_type === 'package' && tickets[0].package_price) {
-      // Es una compra de paquete
-      totalAmount = parseFloat(tickets[0].package_price);
-      items.push({
-        name: `${tickets[0].package_name} - ${tickets[0].rifa_title}`,
-        sku: `package-${tickets[0].package_id}`,
-        price: tickets[0].package_price.toString(),
-        currency: 'USD',
-        quantity: 1
-      });
-    } else {
-      // Compra individual
-      const ticketPrice = parseFloat(tickets[0].ticket_price);
+    // Compra individual
+    const ticketPrice = parseFloat(tickets[0].ticket_price);
       totalAmount = ticketPrice * tickets.length;
       
       items.push({
@@ -89,7 +76,6 @@ router.post('/create-payment', [
         currency: 'USD',
         quantity: tickets.length
       });
-    }
 
     // Crear objeto de pago para PayPal
     const paymentData = {

@@ -169,13 +169,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     
     const rifa = rifas[0];
     
-    // Obtener paquetes de la rifa
-    const [packages] = await conn.execute(
-      'SELECT * FROM packages WHERE rifa_id = ? ORDER BY ticket_quantity ASC',
-      [id]
-    );
-    
-    rifa.packages = packages;
+
     
     // Si el usuario está autenticado y es el creador, incluir información adicional
     if (req.user && (req.user.userId === rifa.created_by || req.user.role === 'admin')) {
@@ -242,7 +236,7 @@ router.post('/', authenticateToken, isAdmin, [
   body('total_tickets').isInt({ min: 1, max: 1000000 }),
   body('ticket_price').isFloat({ min: 0.01 }),
   body('min_tickets').optional().isInt({ min: 1 }),
-  body('allow_single_tickets').optional().isBoolean(),
+
   body('draw_date').isISO8601(),
   body('image_url').optional().isURL()
 ], async (req, res) => {
@@ -258,7 +252,7 @@ router.post('/', authenticateToken, isAdmin, [
       total_tickets,
       ticket_price,
       min_tickets = 1,
-      allow_single_tickets = true,
+
       draw_date,
       image_url
     } = req.body;
@@ -273,8 +267,8 @@ router.post('/', authenticateToken, isAdmin, [
 
     // Crear la rifa
     const [result] = await conn.execute(`
-      INSERT INTO rifas (title, description, image_url, total_tickets, ticket_price, min_tickets, allow_single_tickets, draw_date, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO rifas (title, description, image_url, total_tickets, ticket_price, min_tickets, draw_date, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       title,
       description || null,
@@ -282,7 +276,6 @@ router.post('/', authenticateToken, isAdmin, [
       total_tickets,
       ticket_price,
       min_tickets,
-      allow_single_tickets,
       draw_date,
       req.user.userId
     ]);
@@ -297,7 +290,6 @@ router.post('/', authenticateToken, isAdmin, [
         total_tickets,
         ticket_price,
         min_tickets,
-        allow_single_tickets,
         draw_date,
         status: 'active'
       }
@@ -315,7 +307,7 @@ router.put('/:id', authenticateToken, isOwnerOrAdmin(), upload.single('image'), 
   body('total_tickets').optional().isInt({ min: 1, max: 1000000 }),
   body('ticket_price').optional().isFloat({ min: 0.01 }),
   body('min_tickets').optional().isInt({ min: 1 }),
-  body('allow_single_tickets').optional().isBoolean(),
+
   body('draw_date').optional().isISO8601(),
   body('password').notEmpty().withMessage('La contraseña es requerida para confirmar los cambios')
 ], async (req, res) => {
@@ -361,7 +353,7 @@ router.put('/:id', authenticateToken, isOwnerOrAdmin(), upload.single('image'), 
     const updates = {};
     
     // Permitir actualizar más campos
-    const allowedFields = ['title', 'description', 'total_tickets', 'ticket_price', 'min_tickets', 'allow_single_tickets', 'draw_date'];
+    const allowedFields = ['title', 'description', 'total_tickets', 'ticket_price', 'min_tickets', 'draw_date'];
     
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
@@ -434,80 +426,8 @@ router.delete('/:id', authenticateToken, isOwnerOrAdmin(), async (req, res) => {
   }
 });
 
-// Crear paquete para una rifa
-router.post('/:id/packages', authenticateToken, isOwnerOrAdmin(), [
-  body('name').trim().isLength({ min: 2, max: 255 }),
-  body('ticket_quantity').isInt({ min: 2 }),
-  body('price').isFloat({ min: 0.01 }),
-  body('discount_percentage').optional().isFloat({ min: 0, max: 100 })
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
 
-    const { id } = req.params;
-    const { name, ticket_quantity, price, discount_percentage = 0 } = req.body;
-    
-    const conn = await getConnection();
-    
-    // Verificar que la rifa existe
-    const [rifas] = await conn.execute('SELECT total_tickets FROM rifas WHERE id = ?', [id]);
-    if (rifas.length === 0) {
-      return res.status(404).json({ message: 'Rifa no encontrada' });
-    }
-    
-    // Verificar que la cantidad de tickets no exceda el total
-    if (ticket_quantity > rifas[0].total_tickets) {
-      return res.status(400).json({ message: 'La cantidad de tickets excede el total de la rifa' });
-    }
-    
-    const [result] = await conn.execute(
-      'INSERT INTO packages (rifa_id, name, ticket_quantity, price, discount_percentage) VALUES (?, ?, ?, ?, ?)',
-      [id, name, ticket_quantity, price, discount_percentage]
-    );
-    
-    res.status(201).json({
-      message: 'Paquete creado exitosamente',
-      package: {
-        id: result.insertId,
-        rifa_id: id,
-        name,
-        ticket_quantity,
-        price,
-        discount_percentage
-      }
-    });
-  } catch (error) {
-    console.error('Error al crear paquete:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
 
-// Eliminar paquete
-router.delete('/:rifaId/packages/:packageId', authenticateToken, isOwnerOrAdmin(), async (req, res) => {
-  try {
-    const { rifaId, packageId } = req.params;
-    const conn = await getConnection();
-    
-    // Verificar que no tenga tickets vendidos con este paquete
-    const [soldTickets] = await conn.execute(
-      'SELECT COUNT(*) as count FROM tickets WHERE package_id = ? AND payment_status = "completed"',
-      [packageId]
-    );
-    
-    if (soldTickets[0].count > 0) {
-      return res.status(400).json({ message: 'No se puede eliminar un paquete con tickets vendidos' });
-    }
-    
-    await conn.execute('DELETE FROM packages WHERE id = ? AND rifa_id = ?', [packageId, rifaId]);
-    
-    res.json({ message: 'Paquete eliminado exitosamente' });
-  } catch (error) {
-    console.error('Error al eliminar paquete:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+
 
 module.exports = router;

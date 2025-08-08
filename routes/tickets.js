@@ -62,7 +62,7 @@ router.post('/reserve', [
   body('buyerPhone').optional().isMobilePhone(),
   body('ticketNumbers').isArray({ min: 1 }),
   body('ticketNumbers.*').isInt({ min: 1 }),
-  body('packageId').optional().isInt({ min: 1 })
+
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -75,8 +75,7 @@ router.post('/reserve', [
       buyerName,
       buyerEmail,
       buyerPhone,
-      ticketNumbers,
-      packageId
+      ticketNumbers
     } = req.body;
 
     const conn = await getConnection();
@@ -87,7 +86,7 @@ router.post('/reserve', [
     try {
       // Verificar que la rifa existe y está activa
       const [rifas] = await conn.execute(
-        'SELECT id, total_tickets, ticket_price, allow_single_tickets, min_tickets, status, draw_date FROM rifas WHERE id = ? AND status = "active"',
+        'SELECT id, total_tickets, ticket_price, min_tickets, status, draw_date FROM rifas WHERE id = ? AND status = "active"',
         [rifaId]
       );
       
@@ -107,14 +106,11 @@ router.post('/reserve', [
         throw new Error('La fecha del sorteo ya ha pasado');
       }
       
-      // Verificar si se permite compra de tickets individuales
-      if (!packageId && !rifa.allow_single_tickets && ticketNumbers.length === 1) {
-        throw new Error('Esta rifa no permite la compra de tickets individuales');
-      }
+
       
       // Verificar cantidad mínima de boletos
       const minTickets = rifa.min_tickets || 1;
-      if (!packageId && ticketNumbers.length < minTickets) {
+      if (ticketNumbers.length < minTickets) {
         throw new Error(`Debe comprar al menos ${minTickets} boleto${minTickets > 1 ? 's' : ''}`);
       }
       
@@ -137,49 +133,24 @@ router.post('/reserve', [
         throw new Error(`Los siguientes tickets ya no están disponibles: ${unavailableNumbers.join(', ')}`);
       }
       
-      // Verificar paquete si se especifica
-      let packageInfo = null;
-      if (packageId) {
-        const [packages] = await conn.execute(
-          'SELECT * FROM packages WHERE id = ? AND rifa_id = ?',
-          [packageId, rifaId]
-        );
-        
-        if (packages.length === 0) {
-          throw new Error('Paquete no encontrado');
-        }
-        
-        packageInfo = packages[0];
-        
-        // Verificar que la cantidad de tickets coincide con el paquete
-        if (ticketNumbers.length !== packageInfo.ticket_quantity) {
-          throw new Error(`El paquete requiere exactamente ${packageInfo.ticket_quantity} tickets`);
-        }
-      }
+
       
       // Calcular precio total
-      let totalPrice;
-      if (packageInfo) {
-        totalPrice = packageInfo.price;
-      } else {
-        totalPrice = ticketNumbers.length * rifa.ticket_price;
-      }
+      const totalPrice = ticketNumbers.length * rifa.ticket_price;
       
       // Crear tickets reservados
       const ticketIds = [];
       for (const ticketNumber of ticketNumbers) {
         const [result] = await conn.execute(
           `INSERT INTO tickets (rifa_id, ticket_number, buyer_name, buyer_email, buyer_phone, 
-                               payment_status, purchase_type, package_id) 
-           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+                               payment_status, purchase_type) 
+           VALUES (?, ?, ?, ?, ?, 'pending', 'single')`,
           [
             rifaId,
             ticketNumber,
             buyerName,
             buyerEmail,
-            buyerPhone || null,
-            packageId ? 'package' : 'single',
-            packageId || null
+            buyerPhone || null
           ]
         );
         ticketIds.push(result.insertId);
@@ -196,7 +167,6 @@ router.post('/reserve', [
           buyerName,
           buyerEmail,
           totalPrice,
-          packageId,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 minutos para completar el pago
         }
       });
@@ -218,11 +188,9 @@ router.get('/reservation/:ticketId', async (req, res) => {
     const conn = await getConnection();
     
     const [tickets] = await conn.execute(`
-      SELECT t.*, r.title as rifa_title, r.ticket_price, r.draw_date,
-             rp.name as package_name, rp.price as package_price
+      SELECT t.*, r.title as rifa_title, r.ticket_price, r.draw_date
       FROM tickets t
       JOIN rifas r ON t.rifa_id = r.id
-      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.id = ?
     `, [ticketId]);
     
@@ -299,9 +267,8 @@ router.get('/rifa/:rifaId', optionalAuth, async (req, res) => {
     }
     
     const [tickets] = await conn.execute(`
-      SELECT t.*, rp.name as package_name
+      SELECT t.*
       FROM tickets t
-      LEFT JOIN packages rp ON t.package_id = rp.id
       WHERE t.rifa_id = ?
       ORDER BY t.ticket_number ASC
     `, [rifaId]);

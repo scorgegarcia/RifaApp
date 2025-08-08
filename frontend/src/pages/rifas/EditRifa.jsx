@@ -30,7 +30,7 @@ const EditRifa = () => {
     formState: { errors }
   } = useForm();
 
-  const watchAllowSingleTickets = watch('allow_single_tickets');
+
 
   useEffect(() => {
     fetchRifaData();
@@ -73,7 +73,6 @@ const EditRifa = () => {
       setValue('total_tickets', rifa.total_tickets);
       setValue('ticket_price', rifa.ticket_price);
       setValue('min_tickets', rifa.min_tickets || 1);
-      setValue('allow_single_tickets', rifa.allow_single_tickets);
       setValue('draw_date', format(new Date(rifa.draw_date), 'yyyy-MM-dd'));
       
       if (rifa.image_url) {
@@ -455,35 +454,7 @@ const EditRifa = () => {
                 </div>
               </div>
 
-              {/* Permitir boletos individuales */}
-              <div className="flex items-center">
-                <input
-                  {...register('allow_single_tickets')}
-                  type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <label className="ml-2 block text-sm text-gray-900">
-                  Permitir compra de boletos individuales
-                </label>
-              </div>
-              
-              {!watchAllowSingleTickets && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <div className="flex">
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">
-                        Boletos individuales deshabilitados
-                      </h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        <p>
-                          Los usuarios solo podrán comprar boletos a través de los paquetes que configures.
-                          Asegúrate de crear al menos un paquete para que los usuarios puedan participar.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
             </div>
 
             {/* Botones */}
