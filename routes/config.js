@@ -34,9 +34,129 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// Aplicar middleware de autenticación y admin para las siguientes rutas
+// Aplicar middleware de autenticación y autorización para rutas protegidas
 router.use(authenticateToken);
 router.use(isAdmin);
+
+// Actualizar variables de entorno (solo admin con verificación de contraseña)
+router.put('/env', [
+  body('password').notEmpty().withMessage('La contraseña es requerida'),
+  body('envVars').isObject().withMessage('Las variables de entorno deben ser un objeto')
+], async (req, res) => {
+  
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos inválidos',
+        errors: errors.array()
+      });
+    }
+
+    const { password, envVars } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    // Verificar contraseña del usuario
+    const conn = await getConnection();
+    const [users] = await conn.execute(
+      'SELECT password FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, users[0].password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Contraseña incorrecta'
+      });
+    }
+
+    const allowedVars = [
+      'PAYPAL_CLIENT_ID',
+      'PAYPAL_CLIENT_SECRET', 
+      'PAYPAL_MODE',
+      'DB_HOST',
+      'DB_PORT',
+      'DB_USER',
+      'DB_PASSWORD',
+      'DB_NAME',
+      'JWT_SECRET',
+      'JWT_EXPIRES_IN',
+      'PORT',
+      'NODE_ENV',
+      'IMGBB_API_KEY'
+    ];
+
+    // Validar que solo se actualicen variables permitidas
+    const invalidVars = Object.keys(envVars).filter(key => !allowedVars.includes(key));
+    if (invalidVars.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Variables no permitidas: ${invalidVars.join(', ')}`
+      });
+    }
+
+    // Leer archivo .env actual
+    const envPath = path.join(__dirname, '..', '.env');
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const lines = envContent.split('\n');
+    
+    // Actualizar líneas existentes y agregar nuevas
+    const updatedLines = [];
+    const processedVars = new Set();
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const [key] = trimmedLine.split('=');
+        if (allowedVars.includes(key) && envVars.hasOwnProperty(key)) {
+          updatedLines.push(`${key}=${envVars[key]}`);
+          processedVars.add(key);
+        } else {
+          updatedLines.push(line);
+        }
+      } else {
+        updatedLines.push(line);
+      }
+    });
+    
+    // Agregar variables nuevas que no existían
+    Object.keys(envVars).forEach(key => {
+      if (!processedVars.has(key)) {
+        updatedLines.push(`${key}=${envVars[key]}`);
+      }
+    });
+    
+    // Escribir archivo .env actualizado
+    fs.writeFileSync(envPath, updatedLines.join('\n'));
+
+    res.json({
+      success: true,
+      message: 'Variables de entorno actualizadas exitosamente. Reinicia el servidor para aplicar los cambios.'
+    });
+  } catch (error) {
+    console.error('Error al actualizar variables de entorno:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+});
 
 // Obtener todas las configuraciones (solo admin)
 router.get('/', async (req, res) => {
@@ -58,6 +178,8 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
+
 
 // Actualizar configuración (solo admin)
 router.put('/:key', [
@@ -288,125 +410,6 @@ router.post('/env', [
     });
   } catch (error) {
     console.error('Error al obtener variables de entorno:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
-  }
-});
-
-// Actualizar variables de entorno (solo admin con verificación de contraseña)
-router.put('/env', [
-  body('password').notEmpty().withMessage('La contraseña es requerida'),
-  body('envVars').isObject().withMessage('Las variables de entorno deben ser un objeto')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Datos inválidos',
-        errors: errors.array()
-      });
-    }
-
-    const { password, envVars } = req.body;
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
-    }
-
-    // Verificar contraseña del usuario
-    const conn = await getConnection();
-    const [users] = await conn.execute(
-      'SELECT password FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    const isValidPassword = await bcrypt.compare(password, users[0].password);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        success: false,
-        message: 'Contraseña incorrecta'
-      });
-    }
-
-    const allowedVars = [
-      'PAYPAL_CLIENT_ID',
-      'PAYPAL_CLIENT_SECRET', 
-      'PAYPAL_MODE',
-      'DB_HOST',
-      'DB_PORT',
-      'DB_USER',
-      'DB_PASSWORD',
-      'DB_NAME',
-      'JWT_SECRET',
-      'JWT_EXPIRES_IN',
-      'PORT',
-      'NODE_ENV',
-      'IMGBB_API_KEY'
-    ];
-
-    // Validar que solo se actualicen variables permitidas
-    const invalidVars = Object.keys(envVars).filter(key => !allowedVars.includes(key));
-    if (invalidVars.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Variables no permitidas: ${invalidVars.join(', ')}`
-      });
-    }
-
-    // Leer archivo .env actual
-    const envPath = path.join(__dirname, '..', '.env');
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    const lines = envContent.split('\n');
-    
-    // Actualizar líneas existentes y agregar nuevas
-    const updatedLines = [];
-    const processedVars = new Set();
-    
-    lines.forEach(line => {
-      const trimmedLine = line.trim();
-      if (trimmedLine && !trimmedLine.startsWith('#')) {
-        const [key] = trimmedLine.split('=');
-        if (allowedVars.includes(key) && envVars.hasOwnProperty(key)) {
-          updatedLines.push(`${key}=${envVars[key]}`);
-          processedVars.add(key);
-        } else {
-          updatedLines.push(line);
-        }
-      } else {
-        updatedLines.push(line);
-      }
-    });
-    
-    // Agregar variables nuevas que no existían
-    Object.keys(envVars).forEach(key => {
-      if (!processedVars.has(key)) {
-        updatedLines.push(`${key}=${envVars[key]}`);
-      }
-    });
-    
-    // Escribir archivo .env actualizado
-    fs.writeFileSync(envPath, updatedLines.join('\n'));
-
-    res.json({
-      success: true,
-      message: 'Variables de entorno actualizadas exitosamente. Reinicia el servidor para aplicar los cambios.'
-    });
-  } catch (error) {
-    console.error('Error al actualizar variables de entorno:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'

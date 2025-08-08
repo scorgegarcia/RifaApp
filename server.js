@@ -60,6 +60,8 @@ app.use(express.urlencoded({ extended: true }));
 
 
 
+
+
 // Servir archivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

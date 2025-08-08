@@ -4,15 +4,8 @@ const { getConnection } = require('../config/database');
 // Middleware para verificar token JWT
 const authenticateToken = async (req, res, next) => {
   try {
-    console.log('=== MIDDLEWARE authenticateToken ===');
-    console.log('URL:', req.url);
-    console.log('Method:', req.method);
-    
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-    
-    console.log('Auth header present:', !!authHeader);
-    console.log('Token present:', !!token);
 
     if (!token) {
       return res.status(401).json({ message: 'Token de acceso requerido' });
@@ -37,7 +30,11 @@ const authenticateToken = async (req, res, next) => {
       role: users[0].role
     };
     
-    console.log('Auth successful for user:', decoded.userId);
+    req.user = {
+      userId: decoded.userId,
+      email: users[0].email,
+      role: users[0].role
+    };
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
